@@ -96,28 +96,34 @@ function replaceUrl(url, pageToAlterUrl) {
 
 function alterBodyWithRegex(regex, responseBody, pageToAlterUrl) {
   return responseBody.replace(regex, (match, p1, p2, p3) => {
-    //console.log("ALTERO " + p1);
+    console.log("ALTERO " + p2);
     let retval = p1 + replaceUrl(p2, pageToAlterUrl) + p3;
-    //console.log("ALTERATO " + retval);
+    console.log("ALTERATO " + retval);
     return retval;
   });
 }
 
 // to bve used as regex in alterBody
 const REGEX_TO_ALTER_HTML = [
-    /(href\s?=\s?['"])(.*?)(\s?['"])/g ,
-    /(src\s?=\s?['"]\s?)(.*?)(\s?['"])/g,
+    //tag a
+    /(href\s?=\s?['"])(.*?)(\s?['"])/ig ,
+    //tag img, script, ecc
+    /(src\s?=\s?['"]\s?)(.*?)(\s?['"])/ig,
+    //per i redirect basati su refresh http-equiv
+    /(meta\shttp-equiv\s?=\s?['"]refresh['"]\scontent\s?=\s?['"][0-9]+\s?;\s?URL=\s?)(.*?)(\s?['"])/ig
+    
 ]
 
 const REGEX_TO_ALTER_CSS = [
-    /(url\s?\(\s?['"]\s?)(.*?)(\s?['"]\s?\))/g,
-    /(import\s['"]\s?)(.*?)(\s?['"])/g,
+    /(url\s?\(\s?['"]\s?)(.*?)(\s?['"]\s?\))/ig,
+    /(import\s['"]\s?)(.*?)(\s?['"])/ig,
 ]
 
 function alterBody(regexs, responseBody, pageToAlterUrl) {
 
   let retBody = responseBody;
   for (let reg of regexs) {
+    console.log(retBody);
     retBody = alterBodyWithRegex(reg, retBody, pageToAlterUrl);
   }
   return retBody;
@@ -178,6 +184,15 @@ function webvpnPage(bodyReq, originalRequest, originalResponse) {
 
   const newReq = proto.request(newReqOptions, (response) => {
     //response.setEncoding('utf8'); // ?? //console.log(`HEADERS: ${JSON.stringify(response.headers)}`);
+
+    // alter Location header in response in case of 3xx status code (redirect)
+    // da testare
+    if(response.statusCode >= 300 &&
+       response.statusCode <= 300 &&
+       response.headers.hasOwnProperty('location')) {
+        let newLocation = response.headers['location'].replace(/^location:\s/i, '');
+        response.headers['location'] == replaceUrl(newLocation, urlToGet);
+       }
 
     originalResponse.writeHead(response.statusCode, response.headers);
     //console.log(newReqOptions);
